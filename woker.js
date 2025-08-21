@@ -36,6 +36,35 @@ const MAX_IMAGE_SIZE_MB = 2048;
 // 是否启用镜像大小检查
 const ENABLE_SIZE_CHECK = true;
 
+// ============ 安全和合规配置 ============
+// 是否启用访问控制
+const ENABLE_ACCESS_CONTROL = true;
+
+// 允许的IP段（CIDR格式，空数组表示不限制）
+const ALLOWED_IP_RANGES = [
+  // '192.168.0.0/16',  // 内网
+  // '10.0.0.0/8',      // 内网
+  // '172.16.0.0/12',   // 内网
+];
+
+// 允许的User-Agent模式（用于识别合法的Docker客户端）
+const ALLOWED_USER_AGENTS = [
+  'Docker-Client',
+  'docker',
+  'containerd',
+  'podman',
+  'skopeo'
+];
+
+// 每小时最大请求数（防止滥用）
+const MAX_REQUESTS_PER_HOUR = 1000;
+
+// 是否启用请求日志（用于监控）
+const ENABLE_REQUEST_LOGGING = false;
+
+// 是否显示使用统计
+const SHOW_USAGE_STATS = true;
+
 // ============ 性能优化配置 ============
 // 连接超时时间（毫秒）
 const CONNECTION_TIMEOUT = 15000;
@@ -470,6 +499,10 @@ const preconnectCache = new Map();
 // 简化的会话存储
 const pullSessions = new Map();
 
+// 访问控制存储
+const accessLog = new Map();
+const hourlyStats = new Map();
+
 // 生成会话ID
 function generateSessionId() {
   return Math.random().toString(36).substring(2, 15);
@@ -588,6 +621,90 @@ async function parallelFetch(requests) {
   }
   
   return results;
+}
+
+// 检查IP是否在允许范围内
+function isIPAllowed(ip) {
+  if (!ENABLE_ACCESS_CONTROL || ALLOWED_IP_RANGES.length === 0) {
+    return true;
+  }
+  
+  // 简单的CIDR检查（这里可以用更完整的库）
+  for (const range of ALLOWED_IP_RANGES) {
+    if (range.includes('/')) {
+      // 简化的CIDR检查，实际应该用专门的库
+      const [network, bits] = range.split('/');
+      // 这里简化处理，实际项目建议用ip-range-check库
+      if (ip.startsWith(network.split('.').slice(0, parseInt(bits) / 8).join('.'))) {
+        return true;
+      }
+    } else if (ip === range) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// 检查User-Agent是否合法
+function isUserAgentAllowed(userAgent) {
+  if (!ENABLE_ACCESS_CONTROL || !userAgent) {
+    return true;
+  }
+  
+  const ua = userAgent.toLowerCase();
+  return ALLOWED_USER_AGENTS.some(allowed => 
+    ua.includes(allowed.toLowerCase())
+  );
+}
+
+// 检查请求频率
+function checkRateLimit(ip) {
+  if (!ENABLE_ACCESS_CONTROL) {
+    return true;
+  }
+  
+  const now = Date.now();
+  const hourKey = Math.floor(now / 3600000); // 每小时的key
+  const key = `${ip}-${hourKey}`;
+  
+  const count = hourlyStats.get(key) || 0;
+  if (count >= MAX_REQUESTS_PER_HOUR) {
+    return false;
+  }
+  
+  hourlyStats.set(key, count + 1);
+  
+  // 清理过期的统计数据
+  for (const [k, v] of hourlyStats.entries()) {
+    const [, hour] = k.split('-');
+    if (parseInt(hour) < hourKey - 1) {
+      hourlyStats.delete(k);
+    }
+  }
+  
+  return true;
+}
+
+// 记录访问日志
+function logAccess(request, allowed = true) {
+  if (!ENABLE_REQUEST_LOGGING) {
+    return;
+  }
+  
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const userAgent = request.headers.get('User-Agent') || 'unknown';
+  const url = new URL(request.url);
+  
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    ip,
+    method: request.method,
+    path: url.pathname,
+    userAgent,
+    allowed,
+    cf_ray: request.headers.get('CF-Ray')
+  }));
 }
 
 // 添加日志
@@ -1139,6 +1256,53 @@ async function handleRequest(request, env, ctx) {
 
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    
+    // 访问控制检查
+    const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+    const userAgent = request.headers.get('User-Agent') || '';
+    
+    // 检查IP白名单
+    if (!isIPAllowed(clientIP)) {
+      logAccess(request, false);
+      return new Response('Access denied: IP not allowed', { 
+        status: 403,
+        headers: {
+          'X-Error': 'IP_NOT_ALLOWED',
+          'X-Client-IP': clientIP
+        }
+      });
+    }
+    
+    // 检查User-Agent（仅对Docker请求）
+    if (url.pathname.startsWith('/v2/') && !isUserAgentAllowed(userAgent)) {
+      logAccess(request, false);
+      return new Response('Access denied: Invalid client', { 
+        status: 403,
+        headers: {
+          'X-Error': 'INVALID_CLIENT',
+          'X-User-Agent': userAgent
+        }
+      });
+    }
+    
+    // 检查请求频率
+    if (!checkRateLimit(clientIP)) {
+      logAccess(request, false);
+      return new Response('Rate limit exceeded', { 
+        status: 429,
+        headers: {
+          'X-Error': 'RATE_LIMIT_EXCEEDED',
+          'Retry-After': '3600',
+          'X-RateLimit-Limit': MAX_REQUESTS_PER_HOUR.toString(),
+          'X-RateLimit-Reset': (Math.floor(Date.now() / 3600000) + 1) * 3600000
+        }
+      });
+    }
+    
+    // 记录合法访问
+    logAccess(request, true);
+    
     return handleRequest(request, env, ctx);
   }
 };
