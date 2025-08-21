@@ -1295,7 +1295,7 @@ export default {
           'X-Error': 'RATE_LIMIT_EXCEEDED',
           'Retry-After': '3600',
           'X-RateLimit-Limit': MAX_REQUESTS_PER_HOUR.toString(),
-          'X-RateLimit-Reset': (Math.floor(Date.now() / 3600000) + 1) * 3600000
+          'X-RateLimit-Reset': ((Math.floor(Date.now() / 3600000) + 1) * 3600000).toString()
         }
       });
     }
