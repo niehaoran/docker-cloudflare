@@ -91,7 +91,7 @@ const HOMEPAGE_HTML = `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Docker 镜像代理服务 - Cloudflare Workers</title>
+  <title>Docker 镜像代理服务 - 不丢云加速</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -408,13 +408,13 @@ const HOMEPAGE_HTML = `
 <body>
   <div class="container">
     <h1>🐳 Docker 镜像代理服务</h1>
-    <div class="subtitle">基于 Cloudflare Workers 的高速稳定 Docker 镜像拉取服务</div>
+    <div class="subtitle">基于不丢云的高速稳定 Docker 镜像拉取服务</div>
     
     <div class="status-banner">
       <h3>🚀 服务状态：正常运行</h3>
       <p>当前域名：<strong>${globalThis.location?.hostname || 'your-domain.com'}</strong></p>
       <div style="margin-top: 16px;">
-        <span class="badge">全球加速</span>
+        <span class="badge">不丢云加速</span>
         <span class="badge">自动认证</span>
         <span class="badge">智能重定向</span>
       </div>
@@ -459,7 +459,7 @@ curl ${globalThis.location?.hostname || 'your-domain.com'}/github.com/user/repo/
         </div>
         <div class="feature-item">
           <h4>智能处理</h4>
-          <p>自动处理认证、重定向和 S3 存储桶访问</p>
+          <p>自动处理认证、重定向和云存储访问优化</p>
         </div>
         ${ENABLE_SIZE_CHECK ? `
         <div class="feature-item">
@@ -469,14 +469,14 @@ curl ${globalThis.location?.hostname || 'your-domain.com'}/github.com/user/repo/
         ` : ''}
         <div class="feature-item">
           <h4>全球加速</h4>
-          <p>基于 Cloudflare 全球网络，就近访问最快节点</p>
+          <p>基于不丢云全球边缘网络，就近访问最快节点</p>
         </div>
       </div>
     </div>
     
     <div class="footer">
-      <p><strong>🌟 服务由 Cloudflare Workers 提供支持</strong></p>
-      <p>⚡ 全球边缘计算 • 🔒 安全可靠 • 🚀 极速访问</p>
+      <p><strong>🌟 服务由不丢云边缘计算提供支持</strong></p>
+      <p>⚡ 全球边缘加速 • 🔒 安全可靠 • 🚀 极速访问</p>
       <p>最后更新：${new Date().toLocaleDateString('zh-CN', { 
         year: 'numeric', 
         month: 'long', 
@@ -601,7 +601,11 @@ async function preconnectToHost(hostname) {
 async function parallelFetch(requests) {
   if (!ENABLE_PARALLEL_PROCESSING || requests.length <= 1) {
     // 如果没有启用并行处理或只有一个请求，直接处理
-    return requests.length === 1 ? [await fetch(...requests[0])] : [];
+    if (requests.length === 1) {
+      const [url, options] = requests[0];
+      return [await fetch(url, options)];
+    }
+    return [];
   }
   
   // 限制并发数
@@ -613,7 +617,10 @@ async function parallelFetch(requests) {
   const results = [];
   for (const chunk of chunks) {
     const chunkResults = await Promise.allSettled(
-      chunk.map(request => fetch(...request))
+      chunk.map(request => {
+        const [url, options] = request;
+        return fetch(url, options);
+      })
     );
     results.push(...chunkResults.map(result => 
       result.status === 'fulfilled' ? result.value : null
