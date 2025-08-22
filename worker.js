@@ -79,7 +79,7 @@ const STREAMING_MIN_SIZE = 1;
 const ENABLE_PARALLEL_PROCESSING = true;
 
 // 最大并行连接数
-const MAX_PARALLEL_CONNECTIONS = 6;
+const MAX_PARALLEL_CONNECTIONS = 10;
 
 // 是否启用预连接优化
 const ENABLE_PRECONNECT = true;
@@ -92,9 +92,6 @@ const HOMEPAGE_HTML = `
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Docker 镜像代理服务 - 不丢云加速</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { 
       margin: 0; 
@@ -103,304 +100,312 @@ const HOMEPAGE_HTML = `
     }
     
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
-      animation: gradientShift 10s ease infinite;
-      background-size: 400% 400%;
-    }
-    
-    @keyframes gradientShift {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
     }
     
     .container {
       background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(20px);
-      border-radius: 24px;
-      padding: 60px;
-      box-shadow: 
-        0 32px 64px rgba(0, 0, 0, 0.15),
-        0 0 0 1px rgba(255, 255, 255, 0.2);
-      max-width: 1000px;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      max-width: 800px;
       width: 100%;
       text-align: center;
-      animation: slideUp 0.8s ease-out;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .container::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
-      animation: shimmer 2s ease-in-out infinite;
-    }
-    
-    @keyframes shimmer {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
-    }
-    
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
     }
     
     h1 {
-      color: #1a202c;
-      margin-bottom: 24px;
-      font-size: 3.5em;
+      color: #2d3748;
+      margin-bottom: 16px;
+      font-size: 2.5em;
       font-weight: 700;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      text-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
     
     .subtitle {
       color: #4a5568;
-      margin-bottom: 40px;
-      font-size: 1.4em;
-      font-weight: 400;
-      line-height: 1.6;
+      margin-bottom: 30px;
+      font-size: 1.2em;
+      line-height: 1.5;
     }
     
     .status-banner {
-      background: linear-gradient(135deg, #48bb78, #38a169);
+      background: #48bb78;
       color: white;
-      border-radius: 16px;
-      padding: 24px;
-      margin: 30px 0;
-      box-shadow: 0 8px 24px rgba(72, 187, 120, 0.3);
-      transform: perspective(1000px) rotateX(2deg);
-      transition: transform 0.3s ease;
-    }
-    
-    .status-banner:hover {
-      transform: perspective(1000px) rotateX(0deg) translateY(-2px);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 24px 0;
+      box-shadow: 0 4px 12px rgba(72, 187, 120, 0.2);
     }
     
     .status-banner h3 {
-      font-size: 1.5em;
-      margin-bottom: 12px;
+      font-size: 1.3em;
+      margin-bottom: 8px;
       font-weight: 600;
     }
     
-    .status-banner p {
-      font-size: 1.1em;
-      opacity: 0.95;
-    }
-    
     .info-card {
-      background: rgba(255, 255, 255, 0.8);
-      border-radius: 20px;
-      padding: 32px;
-      margin: 32px 0;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 24px 0;
       border: 1px solid rgba(255, 255, 255, 0.3);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .info-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    
-    .info-card:hover::before {
-      opacity: 1;
-    }
-    
-    .info-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+      text-align: left;
     }
     
     .info-card h3 {
       color: #2d3748;
-      font-size: 1.6em;
-      margin-bottom: 20px;
+      font-size: 1.4em;
+      margin-bottom: 16px;
       font-weight: 600;
     }
     
     .usage-example {
-      background: #1a202c;
+      background: #2d3748;
       color: #e2e8f0;
-      border-radius: 16px;
-      padding: 24px;
-      font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-      margin: 24px 0;
-      text-align: left;
-      overflow-x: auto;
-      font-size: 0.95em;
+      border-radius: 8px;
+      padding: 20px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      margin: 16px 0;
+      font-size: 0.9em;
       line-height: 1.6;
-      box-shadow: 0 8px 24px rgba(26, 32, 44, 0.3);
-      border: 1px solid #2d3748;
-      position: relative;
+      overflow-x: auto;
     }
     
-    .usage-example::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, #667eea, transparent);
-    }
-    
-    .usage-example .comment {
+    .comment {
       color: #68d391;
       font-style: italic;
     }
     
     .feature-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-      margin: 32px 0;
-      text-align: left;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
     }
     
     .feature-item {
-      background: rgba(255, 255, 255, 0.6);
-      border-radius: 16px;
-      padding: 24px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 8px;
+      padding: 16px;
       border: 1px solid rgba(255, 255, 255, 0.4);
-      transition: all 0.3s ease;
-      position: relative;
-    }
-    
-    .feature-item:hover {
-      background: rgba(255, 255, 255, 0.8);
-      transform: translateY(-2px);
-    }
-    
-    .feature-item::before {
-      content: "✨";
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      font-size: 1.5em;
     }
     
     .feature-item h4 {
       color: #2d3748;
-      font-size: 1.2em;
-      margin-bottom: 12px;
-      margin-left: 40px;
+      font-size: 1.1em;
+      margin-bottom: 8px;
       font-weight: 600;
     }
     
     .feature-item p {
       color: #4a5568;
-      margin-left: 40px;
-      line-height: 1.5;
+      line-height: 1.4;
+      font-size: 0.9em;
     }
     
     .config-info {
-      background: linear-gradient(135deg, #fed7aa, #fdba74);
+      background: #fed7aa;
       border: 1px solid #fb923c;
-      border-radius: 16px;
-      padding: 24px;
-      margin: 32px 0;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
       color: #9a3412;
       font-weight: 500;
-      box-shadow: 0 8px 24px rgba(251, 146, 60, 0.2);
     }
     
     .footer {
-      margin-top: 48px;
-      padding-top: 32px;
+      margin-top: 32px;
+      padding-top: 20px;
       border-top: 1px solid rgba(0, 0, 0, 0.1);
       color: #718096;
-      font-size: 0.95em;
-      line-height: 1.6;
-    }
-    
-    .footer p {
-      margin: 8px 0;
+      font-size: 0.9em;
+      line-height: 1.5;
     }
     
     .badge {
       display: inline-block;
-      background: linear-gradient(135deg, #667eea, #764ba2);
+      background: #4299e1;
       color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      font-weight: 500;
+      margin: 2px 4px;
+    }
+    
+    /* 生成器样式 */
+    .generator-section {
+      margin: 20px 0;
+    }
+    
+    .input-group {
+      margin-bottom: 20px;
+    }
+    
+    .input-group label {
+      display: block;
+      color: #2d3748;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .input-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 1em;
+      margin-bottom: 12px;
+      transition: border-color 0.3s ease;
+    }
+    
+    .input-group input:focus {
+      outline: none;
+      border-color: #4299e1;
+      box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    
+    .generate-btn {
+      background: #48bb78;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    
+    .generate-btn:hover {
+      background: #38a169;
+    }
+    
+    .result-section {
+      margin-top: 20px;
+      padding: 20px;
+      background: #f7fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .result-section label {
+      display: block;
+      color: #2d3748;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .result-output {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .result-output input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9em;
+      background: white;
+    }
+    
+    .copy-btn {
+      background: #4299e1;
+      color: white;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background-color 0.3s ease;
+    }
+    
+    .copy-btn:hover {
+      background: #3182ce;
+    }
+    
+    .success-message {
+      margin-top: 8px;
+      color: #38a169;
+      font-weight: 600;
+      font-size: 0.9em;
+    }
+    
+    .examples {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+    
+    .examples h4 {
+      color: #2d3748;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    
+    .example-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .example-btn {
+      background: rgba(66, 153, 225, 0.1);
+      color: #4299e1;
+      border: 1px solid #4299e1;
       padding: 8px 16px;
       border-radius: 20px;
-      font-size: 0.85em;
-      font-weight: 500;
-      margin: 4px;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      font-size: 0.9em;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .example-btn:hover {
+      background: #4299e1;
+      color: white;
     }
     
     @media (max-width: 768px) {
       .container {
-        padding: 40px 30px;
-        margin: 10px;
-        border-radius: 20px;
-      }
-      
-      h1 {
-        font-size: 2.5em;
-      }
-      
-      .subtitle {
-        font-size: 1.2em;
-      }
-      
-      .info-card {
-        padding: 24px;
-      }
-      
-      .feature-grid {
-        grid-template-columns: 1fr;
-        gap: 16px;
-      }
-      
-      .usage-example {
-        font-size: 0.85em;
-        padding: 20px;
-      }
-    }
-    
-    @media (max-width: 480px) {
-      .container {
         padding: 30px 20px;
+        margin: 10px;
       }
       
       h1 {
         font-size: 2em;
       }
       
-      .status-banner, .info-card {
-        padding: 20px;
+      .subtitle {
+        font-size: 1.1em;
+      }
+      
+      .feature-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      
+      .result-output {
+        flex-direction: column;
+      }
+      
+      .result-output input {
+        margin-bottom: 8px;
+      }
+      
+      .example-buttons {
+        justify-content: center;
+      }
+      
+      .example-btn {
+        font-size: 0.8em;
+        padding: 6px 12px;
       }
     }
   </style>
@@ -413,7 +418,7 @@ const HOMEPAGE_HTML = `
     <div class="status-banner">
       <h3>🚀 服务状态：正常运行</h3>
       <p>当前域名：<strong>${globalThis.location?.hostname || 'your-domain.com'}</strong></p>
-      <div style="margin-top: 16px;">
+      <div style="margin-top: 12px;">
         <span class="badge">不丢云加速</span>
         <span class="badge">自动认证</span>
         <span class="badge">智能重定向</span>
@@ -427,18 +432,36 @@ const HOMEPAGE_HTML = `
     ` : ''}
     
     <div class="info-card">
-      <h3>📋 使用方法</h3>
-      <div class="usage-example">
-<span class="comment"># 基础用法 - Docker Hub 官方镜像</span>
-docker pull ${globalThis.location?.hostname || 'your-domain.com'}/nginx
-docker pull ${globalThis.location?.hostname || 'your-domain.com'}/library/nginx
-
-<span class="comment"># 第三方镜像仓库</span>
-docker pull ${globalThis.location?.hostname || 'your-domain.com'}/ghcr.io/user/repo
-docker pull ${globalThis.location?.hostname || 'your-domain.com'}/quay.io/user/repo
-
-<span class="comment"># GitHub 文件下载加速</span>
-curl ${globalThis.location?.hostname || 'your-domain.com'}/github.com/user/repo/releases/download/v1.0/file.tar.gz
+      <h3>🚀 一键生成加速链接</h3>
+      
+      <div class="generator-section">
+        <div class="input-group">
+          <label for="imageInput">输入镜像名称：</label>
+          <input type="text" id="imageInput" placeholder="例如：nginx、mysql:8.0、ghcr.io/user/repo" />
+          <button onclick="generateLink()" class="generate-btn">生成加速链接</button>
+        </div>
+        
+        <div id="resultSection" class="result-section" style="display: none;">
+          <label for="resultOutput">生成的加速命令：</label>
+          <div class="result-output">
+            <input type="text" id="resultOutput" readonly />
+            <button onclick="copyResult()" class="copy-btn">📋 复制</button>
+          </div>
+          <div class="success-message" id="successMessage" style="display: none;">
+            ✅ 已复制到剪贴板！
+          </div>
+        </div>
+      </div>
+      
+      <div class="examples">
+        <h4>📝 常用示例：</h4>
+        <div class="example-buttons">
+          <button onclick="fillExample('nginx')" class="example-btn">nginx</button>
+          <button onclick="fillExample('mysql:8.0')" class="example-btn">mysql:8.0</button>
+          <button onclick="fillExample('redis:alpine')" class="example-btn">redis:alpine</button>
+          <button onclick="fillExample('ghcr.io/user/repo')" class="example-btn">GitHub镜像</button>
+          <button onclick="fillExample('quay.io/user/repo')" class="example-btn">Quay镜像</button>
+        </div>
       </div>
     </div>
     
@@ -447,43 +470,115 @@ curl ${globalThis.location?.hostname || 'your-domain.com'}/github.com/user/repo/
       <div class="feature-grid">
         <div class="feature-item">
           <h4>Docker Hub 代理</h4>
-          <p>支持所有 Docker Hub 官方镜像，包括 library 命名空间</p>
+          <p>支持所有 Docker Hub 官方镜像</p>
         </div>
         <div class="feature-item">
           <h4>第三方仓库</h4>
-          <p>支持 GitHub Container Registry、Quay.io、GCR.io 等</p>
+          <p>支持 GitHub、Quay.io、GCR.io 等</p>
         </div>
         <div class="feature-item">
           <h4>GitHub 加速</h4>
-          <p>加速 GitHub 文件下载，包括 releases 和 raw 文件</p>
+          <p>加速 GitHub 文件下载</p>
         </div>
         <div class="feature-item">
           <h4>智能处理</h4>
-          <p>自动处理认证、重定向和云存储访问优化</p>
+          <p>自动处理认证和重定向</p>
         </div>
         ${ENABLE_SIZE_CHECK ? `
         <div class="feature-item">
           <h4>大小限制</h4>
-          <p>智能检查镜像大小，防止拉取超大镜像</p>
+          <p>智能检查镜像大小</p>
         </div>
         ` : ''}
         <div class="feature-item">
           <h4>全球加速</h4>
-          <p>基于不丢云全球边缘网络，就近访问最快节点</p>
+          <p>基于不丢云全球边缘网络</p>
         </div>
       </div>
     </div>
     
     <div class="footer">
-      <p><strong>🌟 服务由不丢云边缘计算提供支持</strong></p>
-      <p>⚡ 全球边缘加速 • 🔒 安全可靠 • 🚀 极速访问</p>
-      <p>最后更新：${new Date().toLocaleDateString('zh-CN', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      })}</p>
+      <p><strong>🌟 服务由不丢云提供加速支持</strong></p>
     </div>
   </div>
+
+  <script>
+    // 获取当前域名
+    const currentDomain = window.location.hostname || 'your-domain.com';
+    
+    // 生成加速链接
+    function generateLink() {
+      const input = document.getElementById('imageInput');
+      const imageName = input.value.trim();
+      
+      if (!imageName) {
+        alert('请输入镜像名称！');
+        return;
+      }
+      
+      // 生成加速命令
+      const acceleratedCommand = \`docker pull \${currentDomain}/\${imageName}\`;
+      
+      // 显示结果
+      const resultSection = document.getElementById('resultSection');
+      const resultOutput = document.getElementById('resultOutput');
+      
+      resultOutput.value = acceleratedCommand;
+      resultSection.style.display = 'block';
+      
+      // 滚动到结果区域
+      resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    
+    // 复制结果到剪贴板
+    async function copyResult() {
+      const resultOutput = document.getElementById('resultOutput');
+      const successMessage = document.getElementById('successMessage');
+      
+      try {
+        await navigator.clipboard.writeText(resultOutput.value);
+        successMessage.style.display = 'block';
+        
+        // 3秒后隐藏成功消息
+        setTimeout(() => {
+          successMessage.style.display = 'none';
+        }, 3000);
+      } catch (err) {
+        // 降级方案：选中文本
+        resultOutput.select();
+        resultOutput.setSelectionRange(0, 99999);
+        
+        try {
+          document.execCommand('copy');
+          successMessage.style.display = 'block';
+          setTimeout(() => {
+            successMessage.style.display = 'none';
+          }, 3000);
+        } catch (e) {
+          alert('复制失败，请手动复制');
+        }
+      }
+    }
+    
+    // 填充示例
+    function fillExample(example) {
+      const input = document.getElementById('imageInput');
+      input.value = example;
+      input.focus();
+    }
+    
+    // 回车键生成
+    document.getElementById('imageInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        generateLink();
+      }
+    });
+    
+    // 页面加载完成后聚焦输入框
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('imageInput').focus();
+    });
+  </script>
 </body>
 </html>
 `;
