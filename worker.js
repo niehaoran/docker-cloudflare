@@ -62,12 +62,7 @@ const MAX_REQUESTS_PER_HOUR = 1000;
 // 是否启用请求日志（用于监控）
 const ENABLE_REQUEST_LOGGING = false;
 
-// 是否显示使用统计
-const SHOW_USAGE_STATS = true;
-
 // ============ 性能优化配置 ============
-// 连接超时时间（毫秒）
-const CONNECTION_TIMEOUT = 15000;
 
 // 是否启用流式传输优化
 const ENABLE_STREAMING = true;
@@ -75,518 +70,111 @@ const ENABLE_STREAMING = true;
 // 流式传输的最小文件大小（MB）
 const STREAMING_MIN_SIZE = 1;
 
-// 是否启用并行处理
-const ENABLE_PARALLEL_PROCESSING = true;
 
-// 最大并行连接数
-const MAX_PARALLEL_CONNECTIONS = 10;
 
 // 是否启用预连接优化
 const ENABLE_PRECONNECT = true;
 
-// ============ 优化的前端界面 ============
+// ============ 精简的前端界面 ============
 const HOMEPAGE_HTML = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Docker 镜像代理服务 - 不丢云加速</title>
+  <title>Docker 镜像代理服务</title>
   <style>
-    * { 
-      margin: 0; 
-      padding: 0; 
-      box-sizing: border-box; 
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    
-    .container {
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 16px;
-      padding: 40px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-      max-width: 800px;
-      width: 100%;
-      text-align: center;
-    }
-    
-    h1 {
-      color: #2d3748;
-      margin-bottom: 16px;
-      font-size: 2.5em;
-      font-weight: 700;
-    }
-    
-    .subtitle {
-      color: #4a5568;
-      margin-bottom: 30px;
-      font-size: 1.2em;
-      line-height: 1.5;
-    }
-    
-    .status-banner {
-      background: #48bb78;
-      color: white;
-      border-radius: 12px;
-      padding: 20px;
-      margin: 24px 0;
-      box-shadow: 0 4px 12px rgba(72, 187, 120, 0.2);
-    }
-    
-    .status-banner h3 {
-      font-size: 1.3em;
-      margin-bottom: 8px;
-      font-weight: 600;
-    }
-    
-    .info-card {
-      background: rgba(255, 255, 255, 0.6);
-      border-radius: 12px;
-      padding: 24px;
-      margin: 24px 0;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      text-align: left;
-    }
-    
-    .info-card h3 {
-      color: #2d3748;
-      font-size: 1.4em;
-      margin-bottom: 16px;
-      font-weight: 600;
-    }
-    
-    .usage-example {
-      background: #2d3748;
-      color: #e2e8f0;
-      border-radius: 8px;
-      padding: 20px;
-      font-family: 'Consolas', 'Monaco', monospace;
-      margin: 16px 0;
-      font-size: 0.9em;
-      line-height: 1.6;
-      overflow-x: auto;
-    }
-    
-    .comment {
-      color: #68d391;
-      font-style: italic;
-    }
-    
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 16px;
-      margin: 20px 0;
-    }
-    
-    .feature-item {
-      background: rgba(255, 255, 255, 0.5);
-      border-radius: 8px;
-      padding: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.4);
-    }
-    
-    .feature-item h4 {
-      color: #2d3748;
-      font-size: 1.1em;
-      margin-bottom: 8px;
-      font-weight: 600;
-    }
-    
-    .feature-item p {
-      color: #4a5568;
-      line-height: 1.4;
-      font-size: 0.9em;
-    }
-    
-    .config-info {
-      background: #fed7aa;
-      border: 1px solid #fb923c;
-      border-radius: 8px;
-      padding: 16px;
-      margin: 20px 0;
-      color: #9a3412;
-      font-weight: 500;
-    }
-    
-    .footer {
-      margin-top: 32px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(0, 0, 0, 0.1);
-      color: #718096;
-      font-size: 0.9em;
-      line-height: 1.5;
-    }
-    
-    .badge {
-      display: inline-block;
-      background: #4299e1;
-      color: white;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 0.8em;
-      font-weight: 500;
-      margin: 2px 4px;
-    }
-    
-    /* 生成器样式 */
-    .generator-section {
-      margin: 20px 0;
-    }
-    
-    .input-group {
-      margin-bottom: 20px;
-    }
-    
-    .input-group label {
-      display: block;
-      color: #2d3748;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    
-    .input-group input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 1em;
-      margin-bottom: 12px;
-      transition: border-color 0.3s ease;
-    }
-    
-    .input-group input:focus {
-      outline: none;
-      border-color: #4299e1;
-      box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
-    }
-    
-    .generate-btn {
-      background: #48bb78;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 1em;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-    
-    .generate-btn:hover {
-      background: #38a169;
-    }
-    
-    .result-section {
-      margin-top: 20px;
-      padding: 20px;
-      background: #f7fafc;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
-    }
-    
-    .result-section label {
-      display: block;
-      color: #2d3748;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    
-    .result-output {
-      display: flex;
-      gap: 8px;
-    }
-    
-    .result-output input {
-      flex: 1;
-      padding: 12px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      font-family: 'Consolas', 'Monaco', monospace;
-      font-size: 0.9em;
-      background: white;
-    }
-    
-    .copy-btn {
-      background: #4299e1;
-      color: white;
-      border: none;
-      padding: 12px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background-color 0.3s ease;
-    }
-    
-    .copy-btn:hover {
-      background: #3182ce;
-    }
-    
-    .success-message {
-      margin-top: 8px;
-      color: #38a169;
-      font-weight: 600;
-      font-size: 0.9em;
-    }
-    
-    .examples {
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid #e2e8f0;
-    }
-    
-    .examples h4 {
-      color: #2d3748;
-      margin-bottom: 12px;
-      font-weight: 600;
-    }
-    
-    .example-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    
-    .example-btn {
-      background: rgba(66, 153, 225, 0.1);
-      color: #4299e1;
-      border: 1px solid #4299e1;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 0.9em;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    
-    .example-btn:hover {
-      background: #4299e1;
-      color: white;
-    }
-    
-    @media (max-width: 768px) {
-      .container {
-        padding: 30px 20px;
-        margin: 10px;
-      }
-      
-      h1 {
-        font-size: 2em;
-      }
-      
-      .subtitle {
-        font-size: 1.1em;
-      }
-      
-      .feature-grid {
-        grid-template-columns: 1fr;
-        gap: 12px;
-      }
-      
-      .result-output {
-        flex-direction: column;
-      }
-      
-      .result-output input {
-        margin-bottom: 8px;
-      }
-      
-      .example-buttons {
-        justify-content: center;
-      }
-      
-      .example-btn {
-        font-size: 0.8em;
-        padding: 6px 12px;
-      }
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .container { background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 40px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); max-width: 600px; width: 100%; text-align: center; }
+    h1 { color: #2d3748; margin-bottom: 10px; font-size: 2.2em; }
+    .subtitle { color: #4a5568; margin-bottom: 20px; font-size: 1.1em; }
+    .input-group { margin: 20px 0; }
+    .input-group input { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1em; margin-bottom: 12px; }
+    .input-group input:focus { outline: none; border-color: #4299e1; }
+    .btn { background: #48bb78; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1em; cursor: pointer; margin: 5px; }
+    .btn:hover { background: #38a169; }
+    .copy-btn { background: #4299e1; }
+    .copy-btn:hover { background: #3182ce; }
+    .result-section { margin-top: 20px; padding: 20px; background: #f7fafc; border-radius: 8px; display: none; }
+    .result-output { display: flex; gap: 8px; margin-bottom: 10px; }
+    .result-output input { flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: monospace; background: white; }
+    .examples { margin: 20px 0; }
+    .example-btn { background: rgba(66, 153, 225, 0.1); color: #4299e1; border: 1px solid #4299e1; padding: 6px 12px; border-radius: 16px; font-size: 0.9em; cursor: pointer; margin: 2px; }
+    .example-btn:hover { background: #4299e1; color: white; }
+    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(0, 0, 0, 0.1); color: #718096; font-size: 0.9em; }
+    .footer a { color: #4299e1; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .success { color: #38a169; font-weight: 600; margin-top: 8px; display: none; }
+    ${ENABLE_SIZE_CHECK ? `.size-limit { background: #fed7aa; border: 1px solid #fb923c; border-radius: 8px; padding: 12px; margin: 15px 0; color: #9a3412; font-size: 0.9em; }` : ''}
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🐳 Docker 镜像代理服务</h1>
-    <div class="subtitle">基于不丢云的高速稳定 Docker 镜像拉取服务</div>
+    <div class="subtitle">高速稳定的 Docker 镜像拉取加速服务</div>
     
-    <div class="status-banner">
-      <h3>🚀 服务状态：正常运行</h3>
-      <p>当前域名：<strong>${globalThis.location?.hostname || 'your-domain.com'}</strong></p>
-      <div style="margin-top: 12px;">
-        <span class="badge">不丢云加速</span>
-        <span class="badge">自动认证</span>
-        <span class="badge">智能重定向</span>
-      </div>
+    ${ENABLE_SIZE_CHECK ? `<div class="size-limit">⚠️ 镜像大小限制：${MAX_IMAGE_SIZE_MB > 0 ? MAX_IMAGE_SIZE_MB + ' MB' : '无限制'}</div>` : ''}
+    
+    <div class="input-group">
+      <input type="text" id="imageInput" placeholder="输入镜像名称，如：nginx、mysql:8.0、ghcr.io/user/repo" />
+      <button onclick="generateLink()" class="btn">生成加速链接</button>
     </div>
     
-    ${ENABLE_SIZE_CHECK ? `
-    <div class="config-info">
-      ⚠️ <strong>镜像大小限制</strong>：${MAX_IMAGE_SIZE_MB > 0 ? MAX_IMAGE_SIZE_MB + ' MB' : '无限制'}
-    </div>
-    ` : ''}
-    
-    <div class="info-card">
-      <h3>🚀 一键生成加速链接</h3>
-      
-      <div class="generator-section">
-        <div class="input-group">
-          <label for="imageInput">输入镜像名称：</label>
-          <input type="text" id="imageInput" placeholder="例如：nginx、mysql:8.0、ghcr.io/user/repo" />
-          <button onclick="generateLink()" class="generate-btn">生成加速链接</button>
-        </div>
-        
-        <div id="resultSection" class="result-section" style="display: none;">
-          <label for="resultOutput">生成的加速命令：</label>
-          <div class="result-output">
-            <input type="text" id="resultOutput" readonly />
-            <button onclick="copyResult()" class="copy-btn">📋 复制</button>
-          </div>
-          <div class="success-message" id="successMessage" style="display: none;">
-            ✅ 已复制到剪贴板！
-          </div>
-        </div>
+    <div id="resultSection" class="result-section">
+      <div class="result-output">
+        <input type="text" id="resultOutput" readonly />
+        <button onclick="copyResult()" class="btn copy-btn">📋 复制</button>
       </div>
-      
-      <div class="examples">
-        <h4>📝 常用示例：</h4>
-        <div class="example-buttons">
-          <button onclick="fillExample('nginx')" class="example-btn">nginx</button>
-          <button onclick="fillExample('mysql:8.0')" class="example-btn">mysql:8.0</button>
-          <button onclick="fillExample('redis:alpine')" class="example-btn">redis:alpine</button>
-          <button onclick="fillExample('ghcr.io/user/repo')" class="example-btn">GitHub镜像</button>
-          <button onclick="fillExample('quay.io/user/repo')" class="example-btn">Quay镜像</button>
-        </div>
-      </div>
+      <div class="success" id="successMessage">✅ 已复制到剪贴板！</div>
     </div>
     
-    <div class="info-card">
-      <h3>✨ 支持的功能</h3>
-      <div class="feature-grid">
-        <div class="feature-item">
-          <h4>Docker Hub 代理</h4>
-          <p>支持所有 Docker Hub 官方镜像</p>
-        </div>
-        <div class="feature-item">
-          <h4>第三方仓库</h4>
-          <p>支持 GitHub、Quay.io、GCR.io 等</p>
-        </div>
-        <div class="feature-item">
-          <h4>GitHub 加速</h4>
-          <p>加速 GitHub 文件下载</p>
-        </div>
-        <div class="feature-item">
-          <h4>智能处理</h4>
-          <p>自动处理认证和重定向</p>
-        </div>
-        ${ENABLE_SIZE_CHECK ? `
-        <div class="feature-item">
-          <h4>大小限制</h4>
-          <p>智能检查镜像大小</p>
-        </div>
-        ` : ''}
-        <div class="feature-item">
-          <h4>全球加速</h4>
-          <p>基于不丢云全球边缘网络</p>
-        </div>
-      </div>
+    <div class="examples">
+      <div style="margin-bottom: 10px; color: #4a5568; font-weight: 600;">常用示例：</div>
+      <button onclick="fillExample('nginx')" class="example-btn">nginx</button>
+      <button onclick="fillExample('mysql:8.0')" class="example-btn">mysql:8.0</button>
+      <button onclick="fillExample('redis:alpine')" class="example-btn">redis:alpine</button>
+      <button onclick="fillExample('ghcr.io/user/repo')" class="example-btn">GitHub镜像</button>
     </div>
     
     <div class="footer">
-      <p><strong>🌟 服务由不丢云提供加速支持</strong></p>
+      <p><strong>作者：陈不丢</strong></p>
+      <p>GitHub: <a href="https://github.com/niehaoran/docker-cloudflare" target="_blank">niehaoran/docker-cloudflare</a></p>
+      <p style="margin-top: 10px;">🌟 基于 Cloudflare Workers 的全球加速服务</p>
     </div>
   </div>
 
   <script>
-    // 获取当前域名
     const currentDomain = window.location.hostname || 'your-domain.com';
-    
-    // 生成加速链接
     function generateLink() {
       const input = document.getElementById('imageInput');
       const imageName = input.value.trim();
-      
-      if (!imageName) {
-        alert('请输入镜像名称！');
-        return;
-      }
-      
-      // 生成加速命令
+      if (!imageName) { alert('请输入镜像名称！'); return; }
       const acceleratedCommand = \`docker pull \${currentDomain}/\${imageName}\`;
-      
-      // 显示结果
-      const resultSection = document.getElementById('resultSection');
-      const resultOutput = document.getElementById('resultOutput');
-      
-      resultOutput.value = acceleratedCommand;
-      resultSection.style.display = 'block';
-      
-      // 滚动到结果区域
-      resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById('resultOutput').value = acceleratedCommand;
+      document.getElementById('resultSection').style.display = 'block';
     }
-    
-    // 复制结果到剪贴板
     async function copyResult() {
       const resultOutput = document.getElementById('resultOutput');
       const successMessage = document.getElementById('successMessage');
-      
       try {
         await navigator.clipboard.writeText(resultOutput.value);
         successMessage.style.display = 'block';
-        
-        // 3秒后隐藏成功消息
-        setTimeout(() => {
-          successMessage.style.display = 'none';
-        }, 3000);
+        setTimeout(() => successMessage.style.display = 'none', 3000);
       } catch (err) {
-        // 降级方案：选中文本
         resultOutput.select();
-        resultOutput.setSelectionRange(0, 99999);
-        
-        try {
-          document.execCommand('copy');
-          successMessage.style.display = 'block';
-          setTimeout(() => {
-            successMessage.style.display = 'none';
-          }, 3000);
-        } catch (e) {
-          alert('复制失败，请手动复制');
-        }
+        try { document.execCommand('copy'); successMessage.style.display = 'block'; setTimeout(() => successMessage.style.display = 'none', 3000); } catch (e) { alert('复制失败，请手动复制'); }
       }
     }
-    
-    // 填充示例
-    function fillExample(example) {
-      const input = document.getElementById('imageInput');
-      input.value = example;
-      input.focus();
-    }
-    
-    // 回车键生成
-    document.getElementById('imageInput').addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        generateLink();
-      }
-    });
-    
-    // 页面加载完成后聚焦输入框
-    document.addEventListener('DOMContentLoaded', function() {
-      document.getElementById('imageInput').focus();
-    });
+    function fillExample(example) { document.getElementById('imageInput').value = example; }
+    document.getElementById('imageInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') generateLink(); });
+    document.addEventListener('DOMContentLoaded', function() { document.getElementById('imageInput').focus(); });
   </script>
 </body>
 </html>
 `;
 
 // ============ 性能优化实现 ============
-
-// 连接池管理
-const connectionPool = new Map();
 
 // 预连接缓存
 const preconnectCache = new Map();
@@ -595,7 +183,6 @@ const preconnectCache = new Map();
 const pullSessions = new Map();
 
 // 访问控制存储
-const accessLog = new Map();
 const hourlyStats = new Map();
 
 // 生成会话ID
@@ -690,39 +277,6 @@ async function preconnectToHost(hostname) {
   } catch (error) {
     // 预连接失败不影响主流程
   }
-}
-
-// 并行处理多个请求
-async function parallelFetch(requests) {
-  if (!ENABLE_PARALLEL_PROCESSING || requests.length <= 1) {
-    // 如果没有启用并行处理或只有一个请求，直接处理
-    if (requests.length === 1) {
-      const [url, options] = requests[0];
-      return [await fetch(url, options)];
-    }
-    return [];
-  }
-  
-  // 限制并发数
-  const chunks = [];
-  for (let i = 0; i < requests.length; i += MAX_PARALLEL_CONNECTIONS) {
-    chunks.push(requests.slice(i, i + MAX_PARALLEL_CONNECTIONS));
-  }
-  
-  const results = [];
-  for (const chunk of chunks) {
-    const chunkResults = await Promise.allSettled(
-      chunk.map(request => {
-        const [url, options] = request;
-        return fetch(url, options);
-      })
-    );
-    results.push(...chunkResults.map(result => 
-      result.status === 'fulfilled' ? result.value : null
-    ).filter(Boolean));
-  }
-  
-  return results;
 }
 
 // 检查IP是否在允许范围内

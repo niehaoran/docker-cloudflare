@@ -1,14 +1,23 @@
 #!/bin/bash
 
 # =============================================================================
-# Cloudflare 防火墙自动更新管理器 - 私用版
+# Cloudflare 防火墙自动更新管理器
+# =============================================================================
+# 
+# 使用前请先配置以下信息：
+# 
+# 1. ZONE_ID     - 在 Cloudflare Dashboard 右下角找到
+# 2. RULESET_ID  - 在 Security > WAF 中创建规则后获得
+# 3. RULE_ID     - 具体防火墙规则的 ID
+# 4. CF_AUTH_TOKEN - 在 My Profile > API Tokens 创建
+# 
 # =============================================================================
 
-# 硬编码配置 - 你的Cloudflare信息
-ZONE_ID="0e7c83b84c932afa13b10f124643be28"
-RULESET_ID="8dfe563e20024fd6a1091f11f49ebc18"
-RULE_ID="67df139fa14e45cbb3a192929416dfa1"
-CF_AUTH_TOKEN="4-HL4JntIsPLPkdBRXlpekTGXhlLq2SPmRtnm8Z9"
+# 配置信息 - 请修改为你的Cloudflare信息
+ZONE_ID="YOUR_ZONE_ID_HERE"
+RULESET_ID="YOUR_RULESET_ID_HERE"
+RULE_ID="YOUR_RULE_ID_HERE"
+CF_AUTH_TOKEN="YOUR_AUTH_TOKEN_HERE"
 UPDATE_INTERVAL=300  # 5分钟检查一次
 RULE_DESCRIPTION="仅允许指定 IP 地址"
 
@@ -104,10 +113,50 @@ check_dependencies() {
     done
 }
 
+# 验证配置
+validate_config() {
+    local missing_configs=()
+    
+    if [[ "$ZONE_ID" == "YOUR_ZONE_ID_HERE" ]]; then
+        missing_configs+=("ZONE_ID")
+    fi
+    
+    if [[ "$RULESET_ID" == "YOUR_RULESET_ID_HERE" ]]; then
+        missing_configs+=("RULESET_ID")
+    fi
+    
+    if [[ "$RULE_ID" == "YOUR_RULE_ID_HERE" ]]; then
+        missing_configs+=("RULE_ID")
+    fi
+    
+    if [[ "$CF_AUTH_TOKEN" == "YOUR_AUTH_TOKEN_HERE" ]]; then
+        missing_configs+=("CF_AUTH_TOKEN")
+    fi
+    
+    if [ ${#missing_configs[@]} -gt 0 ]; then
+        echo -e "${RED}❌ 配置未完成！${NC}"
+        echo -e "${YELLOW}请在脚本顶部设置以下配置:${NC}"
+        for config in "${missing_configs[@]}"; do
+            echo "  • $config"
+        done
+        echo ""
+        echo -e "${CYAN}如何获取这些配置信息:${NC}"
+        echo "1. 访问 Cloudflare Dashboard"
+        echo "2. 选择你的域名"
+        echo "3. 在右下角找到 Zone ID"
+        echo "4. 前往 Security > WAF，创建防火墙规则获取 RULESET_ID 和 RULE_ID"
+        echo "5. 在 My Profile > API Tokens 创建 API Token"
+        echo ""
+        return 1
+    fi
+    
+    return 0
+}
+
 # 加载配置
 load_config() {
-    # Token已硬编码，直接返回成功
-    return 0
+    validate_config
+    return $?
 }
 
 # 保存配置
@@ -195,7 +244,7 @@ create_service_script() {
     cat > "$SERVICE_FILE" << EOF
 #!/bin/bash
 
-# 硬编码配置
+# 配置信息
 ZONE_ID="$ZONE_ID"
 RULESET_ID="$RULESET_ID"
 RULE_ID="$RULE_ID"
@@ -551,8 +600,12 @@ uninstall() {
 show_main_menu() {
     clear_screen
     
-    echo -n "• Token: "
-    echo -e "${GREEN}已设置 (硬编码)${NC}"
+    echo -n "• 配置: "
+    if validate_config >/dev/null 2>&1; then
+        echo -e "${GREEN}已完成${NC}"
+    else
+        echo -e "${RED}未完成${NC}"
+    fi
     
     echo -n "• 服务: "
     get_service_status > /dev/null
