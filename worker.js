@@ -34,7 +34,7 @@ const ALLOWED_PATHS = [
 const MAX_IMAGE_SIZE_MB = 2048;
 
 // 是否启用镜像大小检查
-const ENABLE_SIZE_CHECK = true;
+const ENABLE_SIZE_CHECK = false;
 
 // ============ 安全和合规配置 ============
 // 是否启用访问控制
