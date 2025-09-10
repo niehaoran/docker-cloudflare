@@ -198,7 +198,7 @@ save_current_ip() {
 update_firewall_rule() {
     local new_ip=$1
     
-    log "INFO" "更新防火墙规则: $new_ip"
+    log "INFO" "正在更新防火墙规则..."
     
     local response=$(curl -s -X PATCH \
         "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/$RULESET_ID/rules/$RULE_ID" \
@@ -206,13 +206,13 @@ update_firewall_rule() {
         -H "Content-Type: application/json" \
         -d "{
             \"action\": \"block\",
-            \"description\": \"$RULE_DESCRIPTION - IP: $new_ip [$(date '+%Y-%m-%d %H:%M:%S')]\",
+            \"description\": \"$RULE_DESCRIPTION [$(date '+%Y-%m-%d %H:%M:%S')]\",
             \"enabled\": true,
             \"expression\": \"(ip.src ne $new_ip)\"
         }")
     
     if echo "$response" | jq -e '.success' > /dev/null 2>&1; then
-        log "SUCCESS" "规则更新成功 - 允许IP: $new_ip"
+        log "SUCCESS" "规则更新成功 - 白名单已更新"
         save_current_ip "$new_ip"
         return 0
     else
@@ -232,10 +232,10 @@ check_and_update() {
     fi
     
     if [ "$current_ip" != "$last_ip" ]; then
-        log "INFO" "IP变化: $last_ip -> $current_ip"
+        log "INFO" "检测到IP变化，准备更新规则"
         update_firewall_rule "$current_ip"
     else
-        log "INFO" "IP无变化: $current_ip"
+        log "INFO" "IP无变化，无需更新规则"
     fi
 }
 
@@ -291,7 +291,7 @@ save_current_ip() {
 # 更新规则
 update_firewall_rule() {
     local new_ip=\$1
-    log "INFO" "更新防火墙规则: \$new_ip"
+    log "INFO" "正在更新防火墙规则..."
     
     local response=\$(curl -s -X PATCH \\
         "https://api.cloudflare.com/client/v4/zones/\$ZONE_ID/rulesets/\$RULESET_ID/rules/\$RULE_ID" \\
@@ -299,13 +299,13 @@ update_firewall_rule() {
         -H "Content-Type: application/json" \\
         -d "{
             \\"action\\": \\"block\\",
-            \\"description\\": \\"\$RULE_DESCRIPTION - IP: \$new_ip [\$(date '+%Y-%m-%d %H:%M:%S')]\\",
+            \\"description\\": \\"\$RULE_DESCRIPTION [\$(date '+%Y-%m-%d %H:%M:%S')]\\",
             \\"enabled\\": true,
             \\"expression\\": \\"(ip.src ne \$new_ip)\\"
         }")
     
     if echo "\$response" | jq -e '.success' > /dev/null 2>&1; then
-        log "SUCCESS" "规则更新成功 - IP: \$new_ip"
+        log "SUCCESS" "规则更新成功 - 白名单已更新"
         save_current_ip "\$new_ip"
         return 0
     else
@@ -325,10 +325,10 @@ check_and_update() {
     fi
     
     if [ "\$current_ip" != "\$last_ip" ]; then
-        log "INFO" "IP变化: \$last_ip -> \$current_ip"
+        log "INFO" "检测到IP变化，准备更新规则"
         update_firewall_rule "\$current_ip"
     else
-        log "INFO" "IP无变化: \$current_ip"
+        log "INFO" "IP无变化，无需更新规则"
     fi
 }
 
