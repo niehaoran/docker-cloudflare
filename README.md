@@ -74,7 +74,7 @@ curl "https://your-domain.com/api/logs/{session-id}"
 如果这个项目对你有帮助，欢迎打赏支持！
 
 <div align="center">
-  <img src="donate-qr.png" alt="微信打赏" width="300"/>
+  <img src="images/weixin.png" alt="微信打赏" width="300"/>
   <br>
   <em>扫码打赏，支持开发</em>
 </div>
