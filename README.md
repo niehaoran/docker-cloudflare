@@ -95,10 +95,5 @@ curl "https://your-domain.com/api/logs/{session-id}"
 ---
 
 <div align="center">
-
 **⭐ 如果这个项目对你有帮助，请给个 Star！⭐**
-
 </div>
-
-## Star 趋势
-[![Star 趋势](https://starchart.cc/niehaoran/docker-cloudflare.svg?variant=adaptive)](https://starchart.cc/niehaoran/docker-cloudflare) 
