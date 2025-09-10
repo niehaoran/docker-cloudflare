@@ -1,108 +1,104 @@
-# Docker 镜像拉取监控系统
+# Docker 镜像代理加速服务
 
-这是一个增强的 Cloudflare Worker，用于代理和监控 Docker 镜像拉取，具有大小限制功能。
+> 🚀 基于 Cloudflare Workers 的 Docker 镜像代理服务
 
-## 新增功能
+## ✨ 功能特性
 
-### 🔍 镜像大小检查
-- 在拉取前自动计算 Docker 镜像的总大小
-- 支持设置最大镜像大小限制（默认 2048 MB）
-- 自动解析 Docker manifest 并计算所有层的总大小
-- 支持多架构镜像的大小检查
+- 🐳 支持 Docker Hub、GHCR、GCR、Quay 等镜像仓库
+- ⚡ 全球 CDN 加速，提升拉取速度
+- 🔒 安全控制：IP 白名单、域名限制、频率控制
+- 📊 可选镜像大小检查功能
+- 🎨 友好的 Web 管理界面
 
-### 📊 实时日志监控
-- 全新的终端风格界面，实时显示镜像拉取状态
-- 会话管理系统，每个拉取操作都有独立的会话ID
-- 实时显示镜像大小、层数、拉取状态等信息
-- 支持查看历史拉取日志
+## 🚀 快速开始
 
-### ⚙️ 配置选项
+### 1. 部署到 Cloudflare Workers
 
-在 `woker.js` 文件顶部的用户配置区域：
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
+2. 创建新的 Worker
+3. 复制 `worker.js` 代码并保存部署
+4. 配置自定义域名
+
+### 2. 使用方法
+
+#### 网页界面
+访问你的域名，输入镜像名即可生成代理命令
+
+#### 命令行使用
+```bash
+# 官方镜像
+docker pull your-domain.com/nginx
+docker pull your-domain.com/mysql:8.0
+
+# 第三方镜像
+docker pull your-domain.com/ghcr.io/username/repo:tag
+```
+
+## 📋 支持的镜像仓库
+
+| 仓库 | 示例 |
+|------|------|
+| Docker Hub | `your-domain.com/nginx` |
+| GitHub | `your-domain.com/ghcr.io/actions/runner` |
+| Google | `your-domain.com/gcr.io/distroless/java` |
+| Quay | `your-domain.com/quay.io/prometheus/prometheus` |
+
+## ⚙️ 配置选项
 
 ```javascript
-// 最大镜像大小限制（单位：MB）
+// 允许的域名
+const ALLOWED_HOSTS = ['registry-1.docker.io', 'ghcr.io', 'gcr.io', 'quay.io'];
+
+// 镜像大小限制（MB，0=不限制）
 const MAX_IMAGE_SIZE_MB = 2048;
 
-// 是否启用大小检查
-const ENABLE_SIZE_CHECK = true;
+// 访问控制
+const ENABLE_ACCESS_CONTROL = true;
+const ALLOWED_IP_RANGES = ['192.168.0.0/16', '10.0.0.0/8'];
 ```
 
-## 使用方法
+## 🔧 API 接口
 
-### 1. 基本使用
-访问部署的域名，使用新的监控界面：
-- 输入镜像名称（如 `nginx`、`hello-world`、`ghcr.io/user/repo`）
-- 点击"开始拉取"创建会话并生成拉取命令
-- 点击"仅检查大小"只检查镜像大小不生成拉取命令
-
-### 2. 命令行使用
 ```bash
-# 拉取镜像（自动进行大小检查）
-docker pull your-domain.com/nginx
-
-# 检查特定镜像的大小
-curl "https://your-domain.com/v2/nginx/manifests/latest"
-```
-
-### 3. API接口
-
-#### 创建拉取会话
-```bash
+# 创建拉取会话
 curl -X POST "https://your-domain.com/api/create-session" \
   -H "Content-Type: application/json" \
   -d '{"image": "nginx"}'
-```
 
-#### 获取会话日志
-```bash
+# 获取会话日志
 curl "https://your-domain.com/api/logs/{session-id}"
 ```
 
-## 功能特性
+## 💖 支持项目
 
-### 大小检查机制
-- 解析 Docker manifest v2 和 OCI 格式
-- 支持多架构镜像（选择第一个架构进行计算）
-- 自动处理 Docker Hub 官方镜像的命名空间
-- 计算包含所有层的准确大小
+如果这个项目对你有帮助，欢迎打赏支持！
 
-### 日志系统
-- 实时更新的终端风格界面
-- 不同类型的日志条目（info、success、error）
-- 会话管理和状态跟踪
-- 自动清理旧日志条目
+<div align="center">
+  <img src="donate-qr.png" alt="微信打赏" width="300"/>
+  <br>
+  <em>扫码打赏，支持开发</em>
+</div>
 
-### 安全特性
-- 白名单域名控制
-- 可选的路径限制
-- 镜像大小限制防止资源滥用
-- CORS 支持
+## 👨‍💻 作者
 
-## 状态说明
+**陈不丢**
+- GitHub: [@niehaoran](https://github.com/niehaoran)
+- 博客: [blog.budiuyun.net](https://blog.budiuyun.net)
+- 我的容器云平台: [budiuyun.net](https://budiuyun.net)
 
-### 会话状态
-- `created`: 会话已创建
-- `processing`: 正在检查镜像大小
-- `approved`: 大小检查通过，允许拉取
-- `rejected`: 镜像过大，拒绝拉取
-- `downloading`: 正在下载镜像数据
+## ⚠️ 免责声明
 
-### 日志类型
-- `info`: 普通信息
-- `success`: 成功操作
-- `error`: 错误信息
+- 本程序仅供学习交流使用，请勿用于非法用途
+- 使用本程序需遵守当地法律法规
+- 作者不对使用者的任何行为承担责任
 
-## 部署说明
+---
 
-1. 将 `woker.js` 部署到 Cloudflare Workers
-2. 配置自定义域名
-3. 调整配置参数（大小限制、白名单等）
-4. 访问域名开始使用监控界面
+<div align="center">
 
-## 注意事项
+**⭐ 如果这个项目对你有帮助，请给个 Star！⭐**
 
-- 大小检查仅在获取 manifest 时进行，不影响后续的层下载性能
-- 会话数据存储在内存中，Worker 重启后会丢失
-- 建议设置合理的大小限制以避免资源浪费
-- 支持所有主流的 Docker 镜像仓库（Docker Hub、GitHub、GCR 等） 
+</div>
+
+## Star 趋势
+[![Star 趋势](https://starchart.cc/niehaoran/docker-cloudflare.svg?variant=adaptive)](https://starchart.cc/niehaoran/docker-cloudflare) 
