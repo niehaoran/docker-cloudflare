@@ -21,12 +21,16 @@ CF_AUTH_TOKEN="YOUR_AUTH_TOKEN_HERE"
 UPDATE_INTERVAL=300  # 5分钟检查一次
 RULE_DESCRIPTION="仅允许指定 IP 地址"
 
+# 额外固定IP地址 - 用逗号分隔，如 "192.168.1.100,10.0.0.50"
+ADDITIONAL_IPS=""
+
 # 文件路径
 CONFIG_FILE="$HOME/.cloudflare-firewall-config"
 LOG_FILE="/tmp/cloudflare-firewall.log"
 PID_FILE="/tmp/cloudflare-firewall.pid"
 SERVICE_FILE="/tmp/cloudflare-firewall-service.sh"
 LAST_IP_FILE="/tmp/cloudflare-last-ip"
+ADDITIONAL_IPS_FILE="/tmp/cloudflare-additional-ips"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -200,6 +204,9 @@ update_firewall_rule() {
     
     log "INFO" "正在更新防火墙规则..."
     
+    # 构建IP白名单表达式
+    local ip_expression=$(build_ip_expression "$new_ip")
+    
     local response=$(curl -s -X PATCH \
         "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/$RULESET_ID/rules/$RULE_ID" \
         -H "Authorization: Bearer $CF_AUTH_TOKEN" \
@@ -208,7 +215,7 @@ update_firewall_rule() {
             \"action\": \"block\",
             \"description\": \"$RULE_DESCRIPTION [$(date '+%Y-%m-%d %H:%M:%S')]\",
             \"enabled\": true,
-            \"expression\": \"(ip.src ne $new_ip)\"
+            \"expression\": \"$ip_expression\"
         }")
     
     if echo "$response" | jq -e '.success' > /dev/null 2>&1; then
@@ -218,6 +225,66 @@ update_firewall_rule() {
     else
         log "ERROR" "规则更新失败: $response"
         return 1
+    fi
+}
+
+# 构建包含所有IP地址的表达式
+build_ip_expression() {
+    local current_ip=$1
+    local expressions=""
+    
+    # 添加当前IP
+    if [ -n "$current_ip" ]; then
+        expressions="(ip.src ne $current_ip)"
+    fi
+    
+    # 添加额外的固定IP地址
+    load_additional_ips
+    if [ -n "$ADDITIONAL_IPS" ]; then
+        IFS=',' read -ra IP_ARRAY <<< "$ADDITIONAL_IPS"
+        for ip in "${IP_ARRAY[@]}"; do
+            if [ -n "$expressions" ]; then
+                expressions="$expressions and (ip.src ne $ip)"
+            else
+                expressions="(ip.src ne $ip)"
+            fi
+        done
+    fi
+    
+    # 如果没有IP地址，使用阻止所有的表达式
+    if [ -z "$expressions" ]; then
+        expressions="(ip.src ne 0.0.0.0)"
+    fi
+    
+    echo "$expressions"
+}
+
+# 加载额外IP地址
+load_additional_ips() {
+    if [ -f "$ADDITIONAL_IPS_FILE" ]; then
+        ADDITIONAL_IPS=$(cat "$ADDITIONAL_IPS_FILE")
+    else
+        # 如果文件不存在，检查脚本中是否有默认值
+        # 如果有默认值且不为空，保存到文件中
+        if [ -n "$ADDITIONAL_IPS" ]; then
+            save_additional_ips
+        fi
+    fi
+}
+
+# 保存额外IP地址
+save_additional_ips() {
+    echo "$ADDITIONAL_IPS" > "$ADDITIONAL_IPS_FILE"
+}
+
+# 显示额外IP地址
+show_additional_ips() {
+    load_additional_ips
+    echo -n "• 额外IP: "
+    if [ -n "$ADDITIONAL_IPS" ]; then
+        echo -e "${CYAN}$ADDITIONAL_IPS${NC}"
+    else
+        echo -e "${YELLOW}未设置${NC}"
     fi
 }
 
@@ -255,6 +322,7 @@ RULE_DESCRIPTION="$RULE_DESCRIPTION"
 CONFIG_FILE="$CONFIG_FILE"
 LOG_FILE="$LOG_FILE"
 LAST_IP_FILE="$LAST_IP_FILE"
+ADDITIONAL_IPS_FILE="$ADDITIONAL_IPS_FILE"
 
 # 日志函数
 log() {
@@ -288,10 +356,53 @@ save_current_ip() {
     echo "\$1" > "\$LAST_IP_FILE"
 }
 
+# 加载额外IP地址
+load_additional_ips() {
+    if [ -f "\$ADDITIONAL_IPS_FILE" ]; then
+        ADDITIONAL_IPS=\$(cat "\$ADDITIONAL_IPS_FILE")
+    else
+        ADDITIONAL_IPS=""
+    fi
+}
+
+# 构建包含所有IP地址的表达式
+build_ip_expression() {
+    local current_ip=\$1
+    local expressions=""
+    
+    # 添加当前IP
+    if [ -n "\$current_ip" ]; then
+        expressions="(ip.src ne \$current_ip)"
+    fi
+    
+    # 添加额外的固定IP地址
+    load_additional_ips
+    if [ -n "\$ADDITIONAL_IPS" ]; then
+        IFS=',' read -ra IP_ARRAY <<< "\$ADDITIONAL_IPS"
+        for ip in "\${IP_ARRAY[@]}"; do
+            if [ -n "\$expressions" ]; then
+                expressions="\$expressions and (ip.src ne \$ip)"
+            else
+                expressions="(ip.src ne \$ip)"
+            fi
+        done
+    fi
+    
+    # 如果没有IP地址，使用阻止所有的表达式
+    if [ -z "\$expressions" ]; then
+        expressions="(ip.src ne 0.0.0.0)"
+    fi
+    
+    echo "\$expressions"
+}
+
 # 更新规则
 update_firewall_rule() {
     local new_ip=\$1
     log "INFO" "正在更新防火墙规则..."
+    
+    # 构建IP白名单表达式
+    local ip_expression=\$(build_ip_expression "\$new_ip")
     
     local response=\$(curl -s -X PATCH \\
         "https://api.cloudflare.com/client/v4/zones/\$ZONE_ID/rulesets/\$RULESET_ID/rules/\$RULE_ID" \\
@@ -301,7 +412,7 @@ update_firewall_rule() {
             \\"action\\": \\"block\\",
             \\"description\\": \\"\$RULE_DESCRIPTION [\$(date '+%Y-%m-%d %H:%M:%S')]\\",
             \\"enabled\\": true,
-            \\"expression\\": \\"(ip.src ne \$new_ip)\\"
+            \\"expression\\": \\"\$ip_expression\\"
         }")
     
     if echo "\$response" | jq -e '.success' > /dev/null 2>&1; then
@@ -571,6 +682,7 @@ uninstall() {
     echo "• $PID_FILE"
     echo "• $SERVICE_FILE"
     echo "• $LAST_IP_FILE"
+    echo "• $ADDITIONAL_IPS_FILE"
     echo ""
     echo -n -e "${RED}确认卸载? [y/N]: ${NC}"
     read confirm
@@ -579,7 +691,7 @@ uninstall() {
         echo ""
         stop_service
         
-        local files=("$CONFIG_FILE" "$LOG_FILE" "$PID_FILE" "$SERVICE_FILE" "$LAST_IP_FILE")
+        local files=("$CONFIG_FILE" "$LOG_FILE" "$PID_FILE" "$SERVICE_FILE" "$LAST_IP_FILE" "$ADDITIONAL_IPS_FILE")
         for file in "${files[@]}"; do
             if [ -f "$file" ]; then
                 rm -f "$file"
@@ -623,22 +735,29 @@ show_main_menu() {
         echo -e "${RED}获取失败${NC}"
     fi
     
+    # 显示额外IP地址
+    show_additional_ips
+    
     echo ""
     echo "1) 设置API Token"
-    echo "2) 服务管理"
-    echo "3) 查看日志"
-    echo "4) 卸载"
-    echo "5) 退出"
+    echo "2) 管理额外IP地址"
+    echo "3) 服务管理"
+    echo "4) 查看日志"
+    echo "5) 立即更新"
+    echo "6) 卸载"
+    echo "7) 退出"
     echo ""
     echo -n -e "${YELLOW}选择: ${NC}"
     read choice
     
     case $choice in
         1) setup_token ;;
-        2) service_management ;;
-        3) view_logs ;;
-        4) uninstall ;;
-        5) exit 0 ;;
+        2) manage_additional_ips ;;
+        3) service_management ;;
+        4) view_logs ;;
+        5) manual_update ;;
+        6) uninstall ;;
+        7) exit 0 ;;
         *) 
             echo -e "${RED}无效选择${NC}"
             wait_for_key
@@ -647,6 +766,198 @@ show_main_menu() {
 }
 
 # 主函数
+# 管理额外IP地址
+manage_additional_ips() {
+    while true; do
+        clear_screen
+        echo -e "${CYAN}管理额外IP地址${NC}"
+        echo "================================="
+        echo ""
+        
+        load_additional_ips
+        echo -e "${YELLOW}当前额外IP地址:${NC}"
+        if [ -n "$ADDITIONAL_IPS" ]; then
+            IFS=',' read -ra IP_ARRAY <<< "$ADDITIONAL_IPS"
+            for ip in "${IP_ARRAY[@]}"; do
+                echo "  • $ip"
+            done
+        else
+            echo -e "  ${YELLOW}暂无设置${NC}"
+        fi
+        
+        echo ""
+        echo "1) 添加IP地址"
+        echo "2) 删除IP地址"
+        echo "3) 清空所有IP"
+        echo "4) 测试IP格式"
+        echo "5) 返回"
+        echo ""
+        echo -n -e "${YELLOW}选择: ${NC}"
+        read choice
+        
+        case $choice in
+            1) add_additional_ip ;;
+            2) remove_additional_ip ;;
+            3) clear_additional_ips ;;
+            4) test_ip_format ;;
+            5) return ;;
+            *) 
+                echo -e "${RED}无效选择${NC}"
+                wait_for_key
+                ;;
+        esac
+    done
+}
+
+# 添加额外IP地址
+add_additional_ip() {
+    echo ""
+    echo -n "请输入要添加的IP地址: "
+    read new_ip
+    
+    # 验证IP格式
+    if ! echo "$new_ip" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' > /dev/null; then
+        echo -e "${RED}IP地址格式无效！${NC}"
+        wait_for_key
+        return
+    fi
+    
+    # 检查是否已存在
+    load_additional_ips
+    if echo "$ADDITIONAL_IPS" | grep -E "(^|,)$new_ip(,|$)" > /dev/null; then
+        echo -e "${YELLOW}IP地址已存在！${NC}"
+        wait_for_key
+        return
+    fi
+    
+    # 添加新IP
+    if [ -z "$ADDITIONAL_IPS" ]; then
+        ADDITIONAL_IPS="$new_ip"
+    else
+        ADDITIONAL_IPS="$ADDITIONAL_IPS,$new_ip"
+    fi
+    
+    save_additional_ips
+    log "INFO" "添加额外IP地址: $new_ip"
+    echo -e "${GREEN}添加成功！${NC}"
+    wait_for_key
+}
+
+# 删除额外IP地址
+remove_additional_ip() {
+    echo ""
+    load_additional_ips
+    if [ -z "$ADDITIONAL_IPS" ]; then
+        echo -e "${YELLOW}暂无IP地址可删除${NC}"
+        wait_for_key
+        return
+    fi
+    
+    echo -e "${YELLOW}当前IP地址:${NC}"
+    local counter=1
+    IFS=',' read -ra IP_ARRAY <<< "$ADDITIONAL_IPS"
+    for ip in "${IP_ARRAY[@]}"; do
+        echo "$counter) $ip"
+        counter=$((counter + 1))
+    done
+    
+    echo ""
+    echo -n "请选择要删除的IP序号: "
+    read choice
+    
+    if ! echo "$choice" | grep -E '^[0-9]+$' > /dev/null; then
+        echo -e "${RED}无效选择！${NC}"
+        wait_for_key
+        return
+    fi
+    
+    counter=1
+    new_list=""
+    removed_ip=""
+    IFS=',' read -ra IP_ARRAY <<< "$ADDITIONAL_IPS"
+    for ip in "${IP_ARRAY[@]}"; do
+        if [ "$counter" != "$choice" ]; then
+            if [ -z "$new_list" ]; then
+                new_list="$ip"
+            else
+                new_list="$new_list,$ip"
+            fi
+        else
+            removed_ip="$ip"
+        fi
+        counter=$((counter + 1))
+    done
+    
+    if [ -n "$removed_ip" ]; then
+        ADDITIONAL_IPS="$new_list"
+        save_additional_ips
+        log "INFO" "删除额外IP地址: $removed_ip"
+        echo -e "${GREEN}删除成功！${NC}"
+    else
+        echo -e "${RED}无效选择！${NC}"
+    fi
+    wait_for_key
+}
+
+# 清空额外IP地址
+clear_additional_ips() {
+    echo ""
+    echo -n "确认清空所有额外IP地址? [y/N]: "
+    read confirm
+    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+        ADDITIONAL_IPS=""
+        save_additional_ips
+        log "INFO" "清空所有额外IP地址"
+        echo -e "${GREEN}清空完成！${NC}"
+    else
+        echo -e "${CYAN}取消操作${NC}"
+    fi
+    wait_for_key
+}
+
+# 测试IP格式
+test_ip_format() {
+    echo ""
+    echo -n "请输入要测试的IP地址: "
+    read test_ip
+    if echo "$test_ip" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' > /dev/null; then
+        echo -e "${GREEN}IP地址格式正确！${NC}"
+    else
+        echo -e "${RED}IP地址格式无效！${NC}"
+        echo -e "${YELLOW}正确格式示例: 192.168.1.100${NC}"
+    fi
+    wait_for_key
+}
+
+# 手动更新
+manual_update() {
+    clear_screen
+    echo -e "${CYAN}立即更新${NC}"
+    echo "================================="
+    echo ""
+    
+    if ! validate_config >/dev/null 2>&1; then
+        echo -e "${RED}请先完成配置设置${NC}"
+        wait_for_key
+        return
+    fi
+    
+    echo "正在执行手动更新..."
+    
+    local current_ip=$(get_current_ip)
+    if [ -z "$current_ip" ]; then
+        echo -e "${RED}无法获取当前IP${NC}"
+    else
+        echo "当前IP: $current_ip"
+        echo "强制更新防火墙规则..."
+        update_firewall_rule "$current_ip"
+    fi
+    
+    echo ""
+    echo "更新完成！"
+    wait_for_key
+}
+
 main() {
     check_dependencies
     touch "$LOG_FILE"
