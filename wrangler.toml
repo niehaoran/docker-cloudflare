@@ -1,0 +1,11 @@
+name = "docker-cloudflare"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "docker-cloudflare"
+
+[vars]
+# 环境变量配置（可选）
+# 如需修改配置，请直接编辑 worker.js 文件中的配置常量 

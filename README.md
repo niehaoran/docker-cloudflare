@@ -12,8 +12,25 @@
 
 ## 🚀 快速开始
 
-### 1. 部署到 Cloudflare Workers
+### 1. 一键部署到 Cloudflare Workers
 
+#### 方式1：使用 Wrangler CLI（推荐）
+```bash
+# 克隆项目
+git clone https://github.com/niehaoran/docker-cloudflare.git
+cd docker-cloudflare
+
+# 安装依赖
+npm install
+
+# 登录 Cloudflare
+npx wrangler login
+
+# 部署
+npm run deploy
+```
+
+#### 方式2：手动部署
 1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
 2. 创建新的 Worker
 3. 复制 `worker.js` 代码并保存部署

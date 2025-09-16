@@ -1,0 +1,22 @@
+{
+  "name": "docker-cloudflare",
+  "version": "1.0.0",
+  "description": "Docker镜像代理服务 - 基于Cloudflare Workers",
+  "main": "worker.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "publish": "wrangler deploy --env production"
+  },
+  "keywords": [
+    "docker",
+    "proxy",
+    "cloudflare",
+    "workers"
+  ],
+  "author": "陈不丢",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+} 
