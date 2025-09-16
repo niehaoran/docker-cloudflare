@@ -103,6 +103,21 @@ curl "https://your-domain.com/api/logs/{session-id}"
 - 博客: [blog.budiuyun.net](https://blog.budiuyun.net)
 - 我的容器云平台: [budiuyun.net](https://budiuyun.net)
 
+## 🚀 推荐服务
+
+### 🐳 不丢容器 - 专业Docker托管平台
+> 💡 一站式容器化解决方案，让部署更简单！
+
+**访问地址**: [budiuyun.net](https://budiuyun.net)
+
+**核心功能**:
+- 🚀 一键部署Docker应用
+- 📊 实时监控与日志查看
+### 📝 技术博客 - 开发者知识分享
+> 💡 分享前沿技术、实战经验和开发心得
+
+**访问地址**: [blog.budiuyun.net](https://blog.budiuyun.net)
+
 ## ⚠️ 免责声明
 
 - 本程序仅供学习交流使用，请勿用于非法用途

@@ -141,6 +141,18 @@ const HOMEPAGE_HTML = `
       <p><strong>作者：陈不丢</strong></p>
       <p>GitHub: <a href="https://github.com/niehaoran/docker-cloudflare" target="_blank">niehaoran/docker-cloudflare</a></p>
       <p style="margin-top: 10px;">🌟 基于 Cloudflare Workers 的全球加速服务</p>
+      
+      <div style="margin-top: 20px; padding: 15px; background: rgba(66, 153, 225, 0.1); border-radius: 8px; border: 1px solid rgba(66, 153, 225, 0.3);">
+        <h3 style="color: #2d3748; margin-bottom: 10px; font-size: 1.1em;">🚀 推荐服务</h3>
+        <p style="margin: 8px 0;">
+          <strong>🐳 不丢容器</strong> - 在线Docker托管服务<br>
+          <a href="https://budiuyun.net" target="_blank" style="color: #4299e1;">budiuyun.net</a>
+        </p>
+        <p style="margin: 8px 0;">
+          <strong>📝 技术博客</strong> - 分享开发经验与技术心得<br>
+          <a href="https://blog.budiuyun.net" target="_blank" style="color: #4299e1;">blog.budiuyun.net</a>
+        </p>
+      </div>
     </div>
   </div>
 
