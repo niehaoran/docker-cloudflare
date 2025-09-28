@@ -30,11 +30,7 @@ const ALLOWED_PATHS = [
   'user-id-2'
 ];
 
-// Docker镜像大小限制（MB，0表示不限制）
-const MAX_IMAGE_SIZE_MB = 2048;
-
-// 是否启用镜像大小检查
-const ENABLE_SIZE_CHECK = false;
+// Docker镜像大小限制功能已移除，现在通过API单独查询镜像大小
 
 // ============ 安全和合规配置 ============
 // 是否启用访问控制
@@ -106,15 +102,12 @@ const HOMEPAGE_HTML = `
     .footer a { color: #4299e1; text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
     .success { color: #38a169; font-weight: 600; margin-top: 8px; display: none; }
-    ${ENABLE_SIZE_CHECK ? `.size-limit { background: #fed7aa; border: 1px solid #fb923c; border-radius: 8px; padding: 12px; margin: 15px 0; color: #9a3412; font-size: 0.9em; }` : ''}
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🐳 Docker 镜像代理服务</h1>
     <div class="subtitle">高速稳定的 Docker 镜像拉取加速服务</div>
-    
-    ${ENABLE_SIZE_CHECK ? `<div class="size-limit">⚠️ 镜像大小限制：${MAX_IMAGE_SIZE_MB > 0 ? MAX_IMAGE_SIZE_MB + ' MB' : '无限制'}</div>` : ''}
     
     <div class="input-group">
       <input type="text" id="imageInput" placeholder="输入镜像名称，如：nginx、mysql:8.0、ghcr.io/user/repo" />
@@ -196,6 +189,8 @@ const pullSessions = new Map();
 
 // 访问控制存储
 const hourlyStats = new Map();
+
+// 镜像大小现在使用CF缓存API，无需全局变量
 
 // 生成会话ID
 function generateSessionId() {
@@ -464,75 +459,7 @@ async function handleToken(realm, service, scope) {
   }
 }
 
-// 计算镜像大小（简化版本）
-async function calculateImageSize(targetDomain, imagePath, token, sessionId) {
-  try {
-    addLog(sessionId, `检查镜像大小: ${imagePath}`, 'info');
-    
-    const manifestUrl = `https://${targetDomain}/v2/${imagePath}/manifests/latest`;
-    const headers = {
-      'Accept': 'application/vnd.docker.distribution.manifest.v2+json,application/vnd.docker.distribution.manifest.list.v2+json',
-      'User-Agent': 'Docker-Client/24.0.0 (linux)'
-    };
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    
-    const manifestResponse = await fetch(manifestUrl, { headers });
-    
-    if (!manifestResponse.ok) {
-      addLog(sessionId, `获取manifest失败: ${manifestResponse.status}`, 'error');
-      return { success: false, size: 0 };
-    }
 
-    const manifest = await manifestResponse.json();
-    let totalSize = 0;
-    let layerCount = 0;
-
-    // 处理不同类型的manifest
-    if (manifest.layers) {
-      // 标准V2 manifest
-      for (const layer of manifest.layers) {
-        totalSize += layer.size;
-        layerCount++;
-      }
-    } else if (manifest.manifests && manifest.manifests[0]) {
-      // 多架构镜像，选择第一个
-      const archManifestUrl = `https://${targetDomain}/v2/${imagePath}/manifests/${manifest.manifests[0].digest}`;
-      const archResponse = await fetch(archManifestUrl, { headers });
-      if (archResponse.ok) {
-        const archManifest = await archResponse.json();
-        if (archManifest.layers) {
-          for (const layer of archManifest.layers) {
-            totalSize += layer.size;
-            layerCount++;
-          }
-        }
-      }
-    }
-
-    const sizeInMB = totalSize / 1024 / 1024;
-    addLog(sessionId, `镜像大小: ${sizeInMB.toFixed(2)} MB (${layerCount} 层)`, 'success');
-
-    // 更新会话信息
-    const session = pullSessions.get(sessionId);
-    if (session) {
-      session.imageSize = sizeInMB;
-      session.layerCount = layerCount;
-    }
-
-    return {
-      success: true,
-      size: sizeInMB,
-      layerCount: layerCount
-    };
-
-  } catch (error) {
-    addLog(sessionId, `大小检查失败: ${error.message}`, 'error');
-    return { success: false, size: 0 };
-  }
-}
 
 // ============ 主处理函数 ============
 async function handleRequest(request, env, ctx) {
@@ -592,6 +519,442 @@ async function handleRequest(request, env, ctx) {
         'Access-Control-Allow-Origin': '*'
       }
     });
+  }
+
+  // API: 计算镜像大小
+  if (path === '/api/image-size' && request.method === 'POST') {
+    try {
+      const body = await request.json();
+      const { image, tag = 'latest' } = body;
+      
+      // 尝试从CF缓存中获取结果
+      const cacheKey = `image-size:${image}:${tag}`;
+      const cacheUrl = new URL(request.url);
+      cacheUrl.pathname = `/cache/${cacheKey}`;
+      
+      try {
+        const cachedResponse = await caches.default.match(cacheUrl.toString());
+        if (cachedResponse) {
+          const cachedData = await cachedResponse.json();
+          console.log(`返回CF缓存结果: ${cacheKey}`);
+          return new Response(JSON.stringify({
+            ...cachedData,
+            timestamp: new Date().toISOString(),
+            cached: true
+          }), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+      } catch (error) {
+        console.log(`缓存读取失败: ${error.message}`);
+      }
+      
+      if (!image) {
+        return new Response(JSON.stringify({ 
+          error: '缺少镜像名称',
+          message: '请提供镜像名称参数'
+        }), {
+          status: 400,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+
+      // 解析镜像名称，确定目标域名和路径
+      let targetDomain, targetPath;
+      const imageParts = image.split('/');
+      
+      if (image.startsWith('docker.io/') || (!image.includes('/') || imageParts.length === 2 && !ALLOWED_HOSTS.includes(imageParts[0]))) {
+        // Docker Hub 镜像
+        targetDomain = 'registry-1.docker.io';
+        if (image.startsWith('docker.io/')) {
+          const dockerPath = image.replace('docker.io/', '');
+          targetPath = dockerPath.includes('/') ? dockerPath : `library/${dockerPath}`;
+        } else if (!image.includes('/')) {
+          targetPath = `library/${image}`;
+        } else {
+          targetPath = image;
+        }
+      } else if (ALLOWED_HOSTS.includes(imageParts[0])) {
+        // 其他允许的域名
+        targetDomain = imageParts[0];
+        targetPath = imageParts.slice(1).join('/');
+      } else {
+        return new Response(JSON.stringify({ 
+          error: '不支持的镜像域名',
+          message: `域名 ${imageParts[0]} 不在允许列表中`,
+          allowedHosts: ALLOWED_HOSTS
+        }), {
+          status: 400,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+
+      // 获取认证token，添加重试机制
+      let token = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries && !token) {
+        try {
+          // 添加延迟以避免率限
+          if (retryCount > 0) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+          }
+          
+          const tokenResponse = await fetch(`https://${targetDomain}/v2/`, {
+            headers: { 
+              'User-Agent': 'Docker-Client/24.0.0 (linux)',
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (tokenResponse.status === 401) {
+            const wwwAuth = tokenResponse.headers.get('WWW-Authenticate');
+            if (wwwAuth) {
+              const authMatch = wwwAuth.match(/Bearer realm="([^"]+)"(?:,service="([^"]*)")?(?:,scope="([^"]*)")?/);
+              if (authMatch) {
+                const [, realm, service, scope] = authMatch;
+                let finalScope = scope;
+                if (!finalScope && targetDomain === 'registry-1.docker.io') {
+                  finalScope = `repository:${targetPath}:pull`;
+                }
+                token = await handleToken(realm, service || targetDomain, finalScope);
+              }
+            }
+          } else if (tokenResponse.status === 429) {
+            // 处理率限，增加重试
+            retryCount++;
+            continue;
+          } else if (tokenResponse.ok) {
+            // 某些仓库不需要认证
+            break;
+          }
+          break;
+        } catch (error) {
+          console.log(`获取token失败 (尝试 ${retryCount + 1}/${maxRetries}): ${error.message}`);
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            return new Response(JSON.stringify({ 
+              error: '认证失败',
+              message: `无法获取访问令牌: ${error.message}`,
+              image: `${image}:${tag}`,
+              retries: retryCount
+            }), {
+              status: 503,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
+        }
+      }
+
+      // 计算镜像大小，添加重试机制
+      const manifestUrl = `https://${targetDomain}/v2/${targetPath}/manifests/${tag}`;
+      let manifestResponse;
+      let manifestRetryCount = 0;
+      const maxManifestRetries = 3;
+      
+      while (manifestRetryCount < maxManifestRetries) {
+        try {
+          // 添加延迟以避免率限
+          if (manifestRetryCount > 0) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, manifestRetryCount) * 1000));
+          }
+          
+          const headers = {
+            'Accept': 'application/vnd.docker.distribution.manifest.v2+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json',
+            'User-Agent': 'Docker-Client/24.0.0 (linux)'
+          };
+          
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+          
+          manifestResponse = await fetch(manifestUrl, { headers });
+          
+          if (manifestResponse.status === 429) {
+            // 处理率限
+            manifestRetryCount++;
+            if (manifestRetryCount >= maxManifestRetries) {
+              return new Response(JSON.stringify({ 
+                error: '请求过于频繁',
+                message: `Docker Hub API 限制，请稍后再试 (${manifestResponse.status}: ${manifestResponse.statusText})`,
+                image: `${image}:${tag}`,
+                retries: manifestRetryCount,
+                suggestion: '建议等待几分钟后重试，或使用其他镜像仓库',
+                note: 'Docker Hub 对匿名请求有严格的频率限制，这是正常现象',
+                alternatives: [
+                  '等待5-10分钟后重试',
+                  '使用 ghcr.io、quay.io 等其他镜像仓库',
+                  '在Docker Hub注册账号获得更高的请求限额'
+                ]
+              }), {
+                status: 429,
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*',
+                  'Retry-After': '600', // 建议10分钟后重试
+                  'Cache-Control': 'no-cache'
+                }
+              });
+            }
+            continue;
+          }
+          
+          if (!manifestResponse.ok) {
+            return new Response(JSON.stringify({ 
+              error: '获取镜像信息失败',
+              message: `HTTP ${manifestResponse.status}: ${manifestResponse.statusText}`,
+              image: `${image}:${tag}`,
+              registry: targetDomain,
+              suggestion: manifestResponse.status === 404 ? 
+                '请检查镜像名称和标签是否正确' : 
+                '请稍后重试或联系仓库管理员'
+            }), {
+              status: manifestResponse.status,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
+          
+          break; // 成功获取，跳出循环
+          
+        } catch (error) {
+          manifestRetryCount++;
+          if (manifestRetryCount >= maxManifestRetries) {
+            return new Response(JSON.stringify({ 
+              error: '网络请求失败',
+              message: `无法连接到 ${targetDomain}: ${error.message}`,
+              image: `${image}:${tag}`,
+              retries: manifestRetryCount
+            }), {
+              status: 503,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
+        }
+      }
+
+      const manifest = await manifestResponse.json();
+      let totalSize = 0;
+      let layerCount = 0;
+      let architecture = 'unknown';
+
+      console.log(`Manifest type: ${manifest.mediaType || 'unknown'}, schemaVersion: ${manifest.schemaVersion}`);
+
+      // 处理不同类型的manifest
+      if (manifest.layers && Array.isArray(manifest.layers)) {
+        // 标准V2 manifest 或 OCI manifest
+        console.log(`Found ${manifest.layers.length} layers`);
+        for (const layer of manifest.layers) {
+          const layerSize = layer.size || 0;
+          totalSize += layerSize;
+          layerCount++;
+          console.log(`Layer: ${layerSize} bytes`);
+        }
+        architecture = manifest.architecture || 'amd64';
+        
+        // 如果有config，也要计算其大小
+        if (manifest.config && manifest.config.size) {
+          totalSize += manifest.config.size;
+          console.log(`Config: ${manifest.config.size} bytes`);
+        }
+        
+      } else if (manifest.manifests && Array.isArray(manifest.manifests) && manifest.manifests.length > 0) {
+        // 多架构镜像 (manifest list)
+        console.log(`Multi-arch manifest with ${manifest.manifests.length} architectures`);
+        
+        // 优先选择 amd64/linux，然后是 arm64/linux，最后是第一个可用的
+        let selectedManifest = manifest.manifests.find(m => 
+          m.platform && m.platform.architecture === 'amd64' && m.platform.os === 'linux'
+        ) || manifest.manifests.find(m => 
+          m.platform && m.platform.architecture === 'arm64' && m.platform.os === 'linux'
+        ) || manifest.manifests[0];
+        
+        console.log(`Selected architecture: ${selectedManifest.platform ? selectedManifest.platform.architecture : 'unknown'}`);
+        
+        // 获取具体架构的manifest
+        const archHeaders = {
+          'Accept': 'application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json',
+          'User-Agent': 'Docker-Client/24.0.0 (linux)'
+        };
+        
+        if (token) {
+          archHeaders['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const archManifestUrl = `https://${targetDomain}/v2/${targetPath}/manifests/${selectedManifest.digest}`;
+        
+        let archRetryCount = 0;
+        let archResponse;
+        
+        while (archRetryCount < 3) {
+          try {
+            if (archRetryCount > 0) {
+              await new Promise(resolve => setTimeout(resolve, Math.pow(2, archRetryCount) * 1000));
+            }
+            
+            archResponse = await fetch(archManifestUrl, { headers: archHeaders });
+            
+            if (archResponse.status === 429) {
+              archRetryCount++;
+              continue;
+            }
+            
+            break;
+          } catch (error) {
+            archRetryCount++;
+            if (archRetryCount >= 3) {
+              console.log(`Failed to fetch arch manifest: ${error.message}`);
+              break;
+            }
+          }
+        }
+        
+        if (archResponse && archResponse.ok) {
+          const archManifest = await archResponse.json();
+          console.log(`Arch manifest type: ${archManifest.mediaType || 'unknown'}`);
+          
+          if (archManifest.layers && Array.isArray(archManifest.layers)) {
+            for (const layer of archManifest.layers) {
+              const layerSize = layer.size || 0;
+              totalSize += layerSize;
+              layerCount++;
+              console.log(`Arch layer: ${layerSize} bytes`);
+            }
+            
+            // 如果有config，也要计算其大小
+            if (archManifest.config && archManifest.config.size) {
+              totalSize += archManifest.config.size;
+              console.log(`Arch config: ${archManifest.config.size} bytes`);
+            }
+          }
+          
+          architecture = selectedManifest.platform ? 
+            `${selectedManifest.platform.architecture}/${selectedManifest.platform.os}` : 
+            'unknown';
+        } else {
+          console.log(`Failed to fetch architecture manifest: ${archResponse ? archResponse.status : 'network error'}`);
+          
+          // 如果无法获取架构特定的manifest，尝试从manifest list中获取基本信息
+          if (selectedManifest.size) {
+            totalSize = selectedManifest.size;
+            layerCount = 1; // manifest list 中通常不包含layer信息
+            console.log(`Using manifest list size: ${totalSize} bytes`);
+          }
+          
+          architecture = selectedManifest.platform ? 
+            `${selectedManifest.platform.architecture}/${selectedManifest.platform.os}` : 
+            'unknown';
+        }
+        
+      } else if (manifest.fsLayers && Array.isArray(manifest.fsLayers)) {
+        // V1 manifest (deprecated)
+        layerCount = manifest.fsLayers.length;
+        architecture = manifest.architecture || 'amd64';
+        console.log(`V1 manifest with ${layerCount} layers (size info not available)`);
+        // V1 manifest不包含大小信息
+        totalSize = 0;
+      } else {
+        console.log(`Unknown manifest format:`, JSON.stringify(manifest, null, 2));
+        console.log(`Manifest keys:`, Object.keys(manifest));
+        
+        // 尝试从未知格式中提取基本信息
+        if (manifest.size) {
+          totalSize = manifest.size;
+          layerCount = 1;
+          console.log(`Extracted size from unknown format: ${totalSize} bytes`);
+        }
+      }
+
+      console.log(`Final result - Total size: ${totalSize} bytes, ${layerCount} layers, arch: ${architecture}`);
+      
+      // 如果仍然没有获取到任何大小信息，记录详细的调试信息
+      if (totalSize === 0 && layerCount === 0) {
+        console.log(`WARNING: No size information obtained for ${image}:${tag}`);
+        console.log(`Target domain: ${targetDomain}, Target path: ${targetPath}`);
+        console.log(`Manifest response status: ${manifestResponse.status}`);
+        console.log(`Manifest content-type: ${manifestResponse.headers.get('content-type')}`);
+        console.log(`Full manifest:`, JSON.stringify(manifest, null, 2));
+      }
+
+      const sizeInMB = totalSize / 1024 / 1024;
+      const sizeInGB = sizeInMB / 1024;
+
+      const responseData = {
+        success: true,
+        image: `${image}:${tag}`,
+        size: {
+          bytes: totalSize,
+          mb: Math.round(sizeInMB * 100) / 100,
+          gb: Math.round(sizeInGB * 100) / 100,
+          human: totalSize > 1024 * 1024 * 1024 ? 
+            `${Math.round(sizeInGB * 100) / 100} GB` : 
+            `${Math.round(sizeInMB * 100) / 100} MB`
+        },
+        layers: layerCount,
+        architecture: architecture,
+        registry: targetDomain,
+        timestamp: new Date().toISOString()
+      };
+
+      // 只有当获取到有效数据时才缓存到CF缓存
+      if (totalSize > 0 || layerCount > 0) {
+        try {
+          const cacheResponse = new Response(JSON.stringify(responseData), {
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'public, max-age=1800' // 30分钟缓存
+            }
+          });
+          
+          // 存储到CF缓存
+          const cacheUrl = new URL(request.url);
+          cacheUrl.pathname = `/cache/${cacheKey}`;
+          await caches.default.put(cacheUrl.toString(), cacheResponse.clone());
+          console.log(`已缓存镜像大小信息: ${cacheKey}`);
+        } catch (error) {
+          console.log(`缓存存储失败: ${error.message}`);
+        }
+      }
+
+      return new Response(JSON.stringify(responseData), {
+        status: 200,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+
+    } catch (error) {
+      return new Response(JSON.stringify({ 
+        error: '计算镜像大小失败',
+        message: error.message
+      }), {
+        status: 500,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
   }
 
   // 处理CORS
@@ -677,61 +1040,7 @@ async function handleRequest(request, env, ctx) {
     }
   }
 
-  // Docker镜像大小检查
-  if (ENABLE_SIZE_CHECK && isDockerRequest && isV2Request && v2RequestType === 'manifests') {
-    const sessionId = url.searchParams.get('session') || generateSessionId();
-    
-    // 获取认证token
-    let token = null;
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.replace('Bearer ', '');
-    }
-    
-    // 尝试获取token
-    if (!token) {
-      try {
-        const tokenResponse = await fetch(`https://${targetDomain}/v2/`, {
-          headers: { 'User-Agent': 'Docker-Client/24.0.0 (linux)' }
-        });
-        
-        if (tokenResponse.status === 401) {
-          const wwwAuth = tokenResponse.headers.get('WWW-Authenticate');
-          if (wwwAuth) {
-            const authMatch = wwwAuth.match(/Bearer realm="([^"]+)"(?:,service="([^"]*)")?(?:,scope="([^"]*)")?/);
-            if (authMatch) {
-              const [, realm, service, scope] = authMatch;
-              let finalScope = scope;
-              if (!finalScope && targetDomain === 'registry-1.docker.io') {
-                finalScope = `repository:${targetPath}:pull`;
-              }
-              token = await handleToken(realm, service || targetDomain, finalScope);
-            }
-          }
-        }
-      } catch (error) {
-        console.log(`获取token失败: ${error.message}`);
-      }
-    }
-    
-    // 检查镜像大小
-    const sizeResult = await calculateImageSize(targetDomain, targetPath, token, sessionId);
-    
-    if (sizeResult.success && MAX_IMAGE_SIZE_MB > 0 && sizeResult.size > MAX_IMAGE_SIZE_MB) {
-      addLog(sessionId, `镜像过大被拒绝: ${sizeResult.size.toFixed(2)} MB > ${MAX_IMAGE_SIZE_MB} MB`, 'error');
-      
-      return new Response(JSON.stringify({
-        error: 'Image too large',
-        message: `镜像大小 ${sizeResult.size.toFixed(2)} MB 超过限制 ${MAX_IMAGE_SIZE_MB} MB`,
-        sessionId: sessionId,
-        imageSize: sizeResult.size,
-        maxSize: MAX_IMAGE_SIZE_MB
-      }), {
-        status: 413,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
+
 
   // 构建目标URL
   let targetUrl;
